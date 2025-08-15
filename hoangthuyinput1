@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nhập Liệu Bán Hàng</title>
+    <!-- Tải Tailwind CSS để tạo giao diện đẹp và tương thích với nhiều thiết bị -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Tải thư viện biểu tượng Lucide Icons để sử dụng các icon đẹp mắt -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        /* Tùy chỉnh biểu tượng */
+        .icon {
+            stroke-width: 2;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
+
+    <!-- Container chính cho toàn bộ ứng dụng -->
+    <div class="bg-white p-8 rounded-2xl shadow-lg w-full max-w-xl border border-gray-200">
+        <h1 class="text-3xl font-bold text-center text-gray-800 mb-6">Nhập Liệu Bán Hàng</h1>
+        
+        <!-- Form nhập liệu -->
+        <form id="sales-form" class="space-y-6">
+
+            <!-- Ngày tháng (tự động điền) -->
+            <div>
+                <label for="date" class="block text-sm font-medium text-gray-700 mb-1">Ngày tháng</label>
+                <input type="text" id="date" name="date" class="w-full px-4 py-2 border border-gray-300 rounded-xl bg-gray-50 text-gray-600 cursor-not-allowed" readonly>
+            </div>
+
+            <!-- Tên sản phẩm -->
+            <div>
+                <label for="product-name" class="block text-sm font-medium text-gray-700 mb-1">Tên sản phẩm</label>
+                <input type="text" id="product-name" name="productName" class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-blue-500 focus:border-blue-500" placeholder="Ví dụ: Bút bi xanh" required>
+            </div>
+            
+            <!-- Số lượng -->
+            <div>
+                <label for="quantity" class="block text-sm font-medium text-gray-700 mb-1">Số lượng</label>
+                <input type="number" id="quantity" name="quantity" class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-blue-500 focus:border-blue-500" min="0" value="1" required>
+            </div>
+
+            <!-- Đơn giá -->
+            <div>
+                <label for="unit-price" class="block text-sm font-medium text-gray-700 mb-1">Đơn giá</label>
+                <input type="number" id="unit-price" name="unitPrice" class="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-blue-500 focus:border-blue-500" min="0" value="0" required>
+            </div>
+
+            <!-- Thành tiền (tự động tính) -->
+            <div>
+                <label for="total-amount" class="block text-sm font-medium text-gray-700 mb-1">Thành tiền</label>
+                <input type="text" id="total-amount" name="totalAmount" class="w-full px-4 py-2 border border-gray-300 rounded-xl bg-gray-50 text-gray-600 cursor-not-allowed" readonly>
+            </div>
+            
+            <!-- Vùng hiển thị thông báo trạng thái -->
+            <div id="status-message" class="text-center font-medium mt-4 h-6"></div>
+
+            <!-- Nút gửi dữ liệu -->
+            <button type="submit" id="submit-button" class="w-full flex items-center justify-center px-4 py-3 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                Gửi Dữ liệu
+            </button>
+        </form>
+    </div>
+
+    <script>
+        // Lấy các phần tử từ DOM
+        const dateInput = document.getElementById('date');
+        const quantityInput = document.getElementById('quantity');
+        const unitPriceInput = document.getElementById('unit-price');
+        const totalAmountInput = document.getElementById('total-amount');
+        const form = document.getElementById('sales-form');
+        const submitButton = document.getElementById('submit-button');
+        const statusMessage = document.getElementById('status-message');
+
+        // CHÚ Ý: Bạn cần thay thế URL này bằng URL của Google Apps Script đã triển khai của bạn
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby-2P2gwdBU198NIZcWd4x3Wi9nY9PZgbFBSevPDNEK7CGB6yV4IQz8KBDD1saMHWeB/exec';
+
+        // Hàm cập nhật ngày hiện tại
+        function updateDate() {
+            const now = new Date();
+            const day = String(now.getDate()).padStart(2, '0');
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const year = now.getFullYear();
+            dateInput.value = `${day}/${month}/${year}`;
+        }
+
+        // Hàm tính toán và cập nhật thành tiền
+        function calculateTotalAmount() {
+            const quantity = parseFloat(quantityInput.value) || 0;
+            const unitPrice = parseFloat(unitPriceInput.value) || 0;
+            const total = quantity * unitPrice;
+            totalAmountInput.value = total.toLocaleString('vi-VN') + ' VNĐ'; // Định dạng tiền tệ
+        }
+
+        // Hàm hiển thị thông báo trạng thái
+        function showStatus(message, isError = false) {
+            statusMessage.innerHTML = message;
+            statusMessage.classList.remove('text-green-600', 'text-red-600');
+            statusMessage.classList.add(isError ? 'text-red-600' : 'text-green-600');
+        }
+
+        // Hàm xử lý việc gửi dữ liệu đến Google Apps Script
+        async function submitData(event) {
+            event.preventDefault(); // Ngăn chặn form gửi đi theo cách thông thường
+
+            // Kiểm tra xem đã có URL chưa
+            if (SCRIPT_URL === 'PASTE_YOUR_GOOGLE_APPS_SCRIPT_URL_HERE') {
+                showStatus('<div class="flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-alert-triangle text-red-600"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M12 9v4M10.363 3.591l-8.106 13.534a1.914 1.914 0 0 0 1.636 2.871h16.214a1.914 1.914 0 0 0 1.636 -2.871l-8.106 -13.534a1.914 1.914 0 0 0 -3.274 0z" /><path d="M12 16h.01" /></svg> <span class="ml-2">Vui lòng dán URL Google Apps Script của bạn!</span></div>', true);
+                return;
+            }
+
+            // Lấy dữ liệu từ các trường nhập
+            const formData = {
+                date: dateInput.value,
+                productName: document.getElementById('product-name').value,
+                quantity: quantityInput.value,
+                unitPrice: unitPriceInput.value,
+                totalAmount: totalAmountInput.value
+            };
+            
+            // Hiển thị trạng thái đang gửi
+            showStatus('Đang gửi dữ liệu...', false);
+            submitButton.disabled = true; // Vô hiệu hóa nút gửi để tránh gửi trùng lặp
+
+            try {
+                // Xây dựng URL với các tham số
+                const url = new URL(SCRIPT_URL);
+                Object.keys(formData).forEach(key => url.searchParams.append(key, formData[key]));
+                
+                // Gửi yêu cầu GET đến Google Apps Script
+                const response = await fetch(url.href);
+                const result = await response.json();
+
+                if (result.status === 'success') {
+                    // Hiển thị thông báo thành công
+                    showStatus('<div class="flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-circle-check-filled text-green-600"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M17 3.34a10 10 0 1 1 -14.997 8.984l-.003 -.324l.003 -.324a10 10 0 0 1 14.997 -8.336zm-4.996 5.66a1 1 0 0 0 -1.218 1.567l1.292 1.293l-1.292 1.293l-.117 .126a1 1 0 0 0 1.415 1.414l1.414 -1.414l2.502 2.503l.09 .092a1 1 0 0 0 1.32 -.095l.092 -.117a1 1 0 0 0 -1.403 -1.414l-1.088 -1.089l1.088 -1.089a1 1 0 0 0 -1.414 -1.414l-1.414 1.414l-1.293 -1.293z" stroke-width="0" fill="currentColor" /></svg> <span class="ml-2">Dữ liệu đã được gửi thành công!</span></div>');
+                    form.reset(); // Xóa các trường sau khi gửi thành công
+                    updateDate(); // Cập nhật lại ngày
+                    calculateTotalAmount(); // Tính lại thành tiền
+                } else {
+                    // Hiển thị thông báo lỗi
+                    showStatus('<div class="flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-x text-red-600"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M18 6l-12 12" /><path d="M6 6l12 12" /></svg> <span class="ml-2">Có lỗi xảy ra, vui lòng thử lại.</span></div>', true);
+                    console.error('Error from server:', result.message);
+                }
+            } catch (error) {
+                showStatus('<div class="flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-cloud-exclamation text-red-600"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M13.5 19h-7.5a5 5 0 0 1 1.057 -9.957a7 7 0 0 1 10.301 -2.905a5 5 0 0 1 -2.758 12.862" /><path d="M19 16v3" /><path d="M19 22v.01" /></svg> <span class="ml-2">Không thể kết nối đến máy chủ.</span></div>', true);
+                console.error('Fetch error:', error);
+            } finally {
+                submitButton.disabled = false; // Mở lại nút gửi
+                // Tạo lại các biểu tượng sau khi DOM được cập nhật
+                lucide.createIcons();
+            }
+        }
+
+        // Thêm các sự kiện
+        document.addEventListener('DOMContentLoaded', () => {
+            updateDate(); // Cập nhật ngày khi trang tải xong
+            calculateTotalAmount(); // Tính thành tiền ban đầu
+            lucide.createIcons(); // Khởi tạo các biểu tượng
+        });
+        
+        // Lắng nghe sự thay đổi của các trường nhập liệu để tính toán lại Thành tiền
+        quantityInput.addEventListener('input', calculateTotalAmount);
+        unitPriceInput.addEventListener('input', calculateTotalAmount);
+        
+        // Lắng nghe sự kiện gửi form
+        form.addEventListener('submit', submitData);
+
+    </script>
+</body>
+</html>
